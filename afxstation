@@ -1,0 +1,180 @@
+#!/bin/bash
+
+printf '\e[?1049h'
+clear
+
+if [ ! -d "$HOME/.afxstation" ]; then
+    mkdir "$HOME/.afxstation"
+fi
+
+GD_FOLDER_URL="https://drive.google.com/drive/folders/1nHL-b2803UbxKB6S2a0lhC_0ZS4LPyMu?usp=sharing"
+MUSIC_DIR="$HOME/.afxstation"
+PLAYER="mpv"
+
+close_and_exit() {
+    clear
+    printf '\e[?1049l'
+    exit 0
+}
+trap close_and_exit INT TERM
+
+if [ -z "$(ls "$MUSIC_DIR"/*.mp3 2>/dev/null)" ]; then
+    echo "No .mp3 files found! Preparing to download tracks from Google Drive..."
+
+    if ! command -v gdown &> /dev/null && ! python3 -c "import gdown" &> /dev/null; then
+        echo "Installing gdown utility for Google Drive download..."
+        if command -v pip3 &> /dev/null; then
+            pip3 install --user --break-system-packages gdown &>/dev/null
+        elif command -v pip &> /dev/null; then
+            pip install --user --break-system-packages gdown &>/dev/null
+        elif [ -d "/data/data/com.termux" ]; then
+            pkg install -y python python-pip && pip install gdown
+        fi
+    fi
+
+    if command -v gdown &> /dev/null; then
+        G_CMD="gdown"
+    elif [ -f "$HOME/.local/bin/gdown" ]; then
+        G_CMD="$HOME/.local/bin/gdown"
+    elif python3 -c "import gdown" &> /dev/null; then
+        G_CMD="python3 -m gdown"
+    else
+        printf '\e[?1049l'
+        echo "❌ Error: gdown is not installed properly."
+        exit 1
+    fi
+
+    echo "Downloading tracks from Google Drive. Please wait..."
+    cd "$MUSIC_DIR" || exit 1
+    
+    $G_CMD "$GD_ZIP_URL" -O music.zip
+
+    if [ -d "apx" ]; then
+        mv apx/* . 2>/dev/null
+        rm -rf apx
+    fi
+
+    if [ -n "$(ls "$MUSIC_DIR"/*.mp3 2>/dev/null)" ]; then
+        echo "✅ Music successfully downloaded from Google Drive!"
+        sleep 1.5
+        clear
+    else
+        printf '\e[?1049l'
+        echo "❌ Error downloading music."
+        echo "Google Drive blocked the download connection."
+        echo "Try again or install tracks to ~/.afxstation manually: https://drive.google.com/drive/folders/1nHL-b2803UbxKB6S2a0lhC_0ZS4LPyMu?usp=drive_link"
+        exit 1
+    fi
+fi
+
+cd "$MUSIC_DIR" || { printf '\e[?1049l'; echo "Music directory not found"; exit 1; }
+
+if ! command -v $PLAYER &> /dev/null; then
+    echo "$PLAYER not installed! Installing mpv..."
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if command -v brew &> /dev/null; then
+            brew install mpv
+        else
+            echo "Homebrew not installed!"
+            sleep 3
+            close_and_exit
+        fi
+    elif [ -f /etc/debian_version ]; then
+        sudo apt update && sudo apt install -y mpv
+    elif [ -f /etc/arch-release ]; then
+        sudo pacman -S --noconfirm mpv
+    elif [ -d "/data/data/com.termux" ]; then
+        pkg update -y && pkg install -y mpv
+    elif [ -f /etc/fedora-release ]; then
+        sudo dnf install -y https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+        sudo dnf install -y mpv
+    else
+        echo "Package manager not detected."
+        sleep 3
+        close_and_exit
+    fi
+fi
+
+LOGO="
+                                                                                                  dMMMMMMMMMMMMMMk                  
+                                                                                             dMMMc                ;MMMO             
+                                                                                          OMM'                        .MMK          
+                                                                                       .MM;                              'MM'       
+                                                                                     .MM.                                   MM.     
+                                                                                    dMc                                      ,MO    
+                                                                                   NM    XMMMMMMMMMMMMMMMMMMMMMMMM,            WM   
+                                                                                  WW    .MMMMMMMMMMMMM dMMMMMMMMMMM,            XM  
+                                                                                 OM      .MMMMMMMMMX   ,MMMMMMMMMMMM.            WK 
+                                                                                'M:                   :MMMMMMMMMMMMMK            ,M:
+                                                                                OW                   dMMMMx .MMMMMMMMd            XX
+                                                                                WO                  OMMMMM.   KMMMMMMM,           dM
+                                                                                Mx                 XMMMMMMO    lMMMMMMM           oM
+                                                                                WO                MMMMMMMk      .MMMMMM0          xM
+                                                                                OW              .MMMM0            MMMMMMl         XK
+                                                                                'Mc            ;MMMW               kMMMMM'       ,M:
+                                                                                 kM           .MMM;                 cMMMMM       WK 
+                                                                                  NM                                 .MMMM0     XM  
+                                                                                   NM                                  NMMM;   MM   
+                                                                                    dMl                                      ;Mk    
+                                                                                      MM.                                   MM.     
+                                                                                        MM:                              ,MM.       
+                                                                                          xMM;                        'MM0          
+                                                                                             lMMMd                lMMMx             
+                                                                                                  :MMMMMMMMMMMMMMo                  
+                                                                                                       cMMMMo                       
+"
+
+if [ -n "$1" ]; then
+    MATCH=$(find . -maxdepth 1 -iname "*$1*.mp3" | head -n 1)
+    if [ -n "$MATCH" ]; then
+        printf '\e[?1049l'
+        clear
+        echo "$LOGO"
+        echo "                                                                                        Selected ambient works on $SHELL"
+        echo "                                                                                            Now playing: ${MATCH#./}"
+        $PLAYER --no-video --quiet --msg-level=all=no "$MATCH"
+    else
+        printf '\e[?1049l'
+        echo "'$1' Not found"
+    fi
+    exit 0
+fi
+
+echo "$LOGO"
+mapfile -t tracks < <(ls *.mp3 2>/dev/null)
+
+if [ ${#tracks[@]} -eq 0 ]; then
+    echo ".mp3 files not found!"
+    sleep 2
+    close_and_exit
+fi
+
+for i in "${!tracks[@]}"; do
+    echo "$((i+1)). ${tracks[$i]}"
+done
+
+echo ""
+read -p "[id/q]: " choice
+
+if [[ "$choice" == "q" ]]; then
+    echo "Exiting..."
+    sleep 0.5
+    close_and_exit
+fi
+
+if [[ "$choice" -gt 0 && "$choice" -le "${#tracks[@]}" ]]; then
+    SELECTED_TRACK="${tracks[$((choice-1))]}"
+    printf '\e[?1049l'
+    clear
+    echo "$LOGO"
+    echo "                                                                                        Selected ambient works on $SHELL"
+    echo "                                                                                               Now playing: $SELECTED_TRACK"
+    $PLAYER --no-video --quiet --msg-level=all=no "$SELECTED_TRACK"
+else
+    echo "Not found"
+    sleep 1.5
+    close_and_exit
+fi
+
+close_and_exit
