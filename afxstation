@@ -40,7 +40,7 @@ if [ -z "$(ls "$MUSIC_DIR"/*.mp3 2>/dev/null)" ]; then
         G_CMD="python3 -m gdown"
     else
         printf '\e[?1049l'
-        echo "❌ Error: gdown is not installed properly."
+        echo "Error: gdown is not installed properly."
         exit 1
     fi
 
@@ -55,12 +55,12 @@ if [ -z "$(ls "$MUSIC_DIR"/*.mp3 2>/dev/null)" ]; then
     fi
 
     if [ -n "$(ls "$MUSIC_DIR"/*.mp3 2>/dev/null)" ]; then
-        echo "✅ Music successfully downloaded from Google Drive!"
+        echo "Music successfully downloaded from Google Drive!"
         sleep 1.5
         clear
     else
         printf '\e[?1049l'
-        echo "❌ Error downloading music."
+        echo "Error downloading music."
         echo "Google Drive blocked the download connection."
         echo "Try again or install tracks to ~/.afxstation manually: https://drive.google.com/drive/folders/1nHL-b2803UbxKB6S2a0lhC_0ZS4LPyMu?usp=drive_link"
         exit 1
